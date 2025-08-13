@@ -29,49 +29,75 @@ function DefaultConfigurationPage() {
     if (!modelInfo) return;
 
     try {
-      const quantityToUse = quantity ?? modelInfo.Segment?.MinQuantity ?? 1;
+      // Read user info from sessionStorage
+      const userIdStr = sessionStorage.getItem("userId");
+      const jwtToken = sessionStorage.getItem("jwtToken");
 
-      const details = modelInfo.DefaultComponents.map((comp) => ({
-        compId: comp.Component.CompId,
-        isAlternate: "N",
-      }));
-
-      const payload = {
-        modelId: modelInfo.ModelId,
-        quantity: quantityToUse,
-        details: details,
-      };
-
-      const response = await fetch("http://localhost:7000/api/invoices/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create invoice");
+      if (!userIdStr || !jwtToken) {
+        alert("User is not logged in or session expired. Please login again.");
+        return;
       }
 
-      const invoiceData = await response.json();
+      const userId = parseInt(userIdStr);
+      if (isNaN(userId)) {
+        alert("Invalid user info. Please login again.");
+        return;
+      }
 
+      // Prepare invoice details: all default components are not alternates
+      const details = modelInfo.DefaultComponents.map((comp) => ({
+        CompId: comp.Component.CompId,
+        IsAlternate: "N",
+      }));
+
+      // Payload similar to Configure page
+      const payload = {
+        UserId: userId,
+        ModelId: modelInfo.ModelId,
+        Quantity: quantity ?? modelInfo.Segment?.MinQuantity ?? 1,
+        Details: details,
+      };
+
+      const response = await fetch(
+        "https://localhost:7000/api/invoiceheader/create",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${jwtToken}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to create invoice: ${errorText || response.statusText}`
+        );
+      }
+
+      const createdInvoice = await response.json();
+
+      // Navigate to invoice page with same structure as Configure page
       navigate("/invoice", {
         state: {
-          invoice: invoiceData,
+          invoice: createdInvoice,
           modelId: modelInfo.ModelId,
-          modelName: modelInfo.ModelName,
-          totalPrice: modelInfo.Price * quantityToUse,
-          basePrice: modelInfo.Price,
-          quantity: quantityToUse,
+          selectedAlternates: {}, // No alternates in default configuration
           defaultComponents: modelInfo.DefaultComponents,
+          totalPrice:
+            (modelInfo.Price ?? 0) * (quantity ?? modelInfo.Segment?.MinQuantity ?? 1),
+          basePrice: modelInfo.Price ?? 0,
+          quantity: quantity ?? modelInfo.Segment?.MinQuantity ?? 1,
         },
       });
-    } catch (error) {
-      console.error("Invoice creation failed:", error);
-      alert("Failed to create invoice.");
+    } catch (err) {
+      console.error("Error creating invoice:", err);
+      alert(`Failed to create invoice. ${err.message}`);
     }
   };
+
 
   const handleConfigure = () =>
     navigate("/configure", {
