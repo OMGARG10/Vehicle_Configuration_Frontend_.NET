@@ -5,7 +5,7 @@ function RegistrationForm() {
   const navigate = useNavigate();
 
   const initialForm = {
-    companyName: "", address1: "", address2: "", area: "", city: "", state: "", pin: "",
+    companyName: "", address1: "", address2: "", city: "", state: "", pin: "",
     tel: "", fax: "", holding: "", authorizedPerson: "", designation: "",
     telAuth: "", cell: "", stNo: "", vatNo: "", pan: "",
     email: "", password: ""
@@ -61,9 +61,7 @@ function RegistrationForm() {
     try {
       const response = await fetch("https://localhost:7000/api/user/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
 
@@ -72,11 +70,10 @@ function RegistrationForm() {
         throw new Error(error || "Server error");
       }
 
-      // const savedUser = await response.json();
-
       alert("Registration Successful!");
       handleClear();
-      navigate("/signin"); // Navigate to SignIn page
+      navigate("/signin");
+
     } catch (error) {
       console.error("Error:", error);
       alert("Registration failed. Please try again.");
@@ -89,116 +86,131 @@ function RegistrationForm() {
         minHeight: "100vh",
         width: "100vw",
         display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        background: "linear-gradient(to right, #1e3c72, #2a5298)",
-        color: "#fff",
+        justifyContent: "center",
+        paddingTop: "7rem",
+        paddingBottom: "3rem",
+        backgroundColor: "#f5f5f5",
         fontFamily: "Arial, sans-serif",
-        padding: "2rem 1rem",
-        overflowY: "auto"
       }}
     >
-      <h1 style={{ margin: "2rem 0 1rem", marginTop: "5rem" }}>Company Registration</h1>
-
-      <form
-        onSubmit={handleSubmit}
+      <div
         style={{
+          width: "90%",
+          maxWidth: "800px",
+          backgroundColor: "#fff",
+          borderRadius: "12px",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          padding: "2rem 2.5rem",
           display: "flex",
           flexDirection: "column",
-          gap: "1rem",
-          padding: "2rem",
-          borderRadius: "8px",
-          backgroundColor: "rgba(255, 255, 255, 0.1)",
-          width: "100%",
-          maxWidth: "600px",
-          marginTop: "1rem"
+          gap: "1.2rem",
         }}
       >
-        {[
-          { label: "Name of the company *", name: "companyName" },
-          { label: "Address Line 1 *", name: "address1" },
-          { label: "Address Line 2", name: "address2" },
-          { label: "Area / City *", name: "city" },
-          { label: "State *", name: "state" },
-          { label: "Pin *", name: "pin" },
-          { label: "Tel", name: "tel" },
-          { label: "Fax", name: "fax" },
-          { label: "Name of Authorized Person *", name: "authorizedPerson" },
-          { label: "Designation *", name: "designation" },
-          { label: "Tel (Authorized)", name: "telAuth" },
-          { label: "Cell", name: "cell" },
-          { label: "Company's ST No", name: "stNo" },
-          { label: "Company VAT Reg. No", name: "vatNo" },
-          { label: "I Tax PAN (if needed)", name: "pan" },
-          { label: "Email *", name: "email" },
-          { label: "Password *", name: "password" }
-        ].map(({ label, name }) => (
-          <input
-            key={name}
-            type={name === "password" ? "password" : "text"}
-            placeholder={label}
-            name={name}
-            value={form[name]}
-            onChange={handleChange}
-            style={{
-              padding: "0.8rem",
-              borderRadius: "4px",
-              border: "none",
-              fontSize: "1rem"
-            }}
-          />
-        ))}
+        <h1 style={{ textAlign: "center", fontSize: "2rem", color: "#222" }}>
+          Company Registration
+        </h1>
 
-        <select
-          name="holding"
-          value={form.holding}
-          onChange={handleChange}
-          required
-          style={{
-            padding: "0.8rem",
-            borderRadius: "4px",
-            border: "none",
-            fontSize: "1rem"
-          }}
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
         >
-          <option value="">-- Select Holding Type * --</option>
-          <option value="Proprietary">Proprietary</option>
-          <option value="Pvt. Ltd">Pvt. Ltd</option>
-          <option value="Ltd">Ltd</option>
-        </select>
+          {[
+            { label: "Name of the company *", name: "companyName" },
+            { label: "Address Line 1 *", name: "address1" },
+            { label: "Address Line 2", name: "address2" },
+            { label: "Area / City *", name: "city" },
+            { label: "State *", name: "state" },
+            { label: "Pin *", name: "pin" },
+            { label: "Tel", name: "tel" },
+            { label: "Fax", name: "fax" },
+            { label: "Name of Authorized Person *", name: "authorizedPerson" },
+            { label: "Designation *", name: "designation" },
+            { label: "Tel (Authorized)", name: "telAuth" },
+            { label: "Cell", name: "cell" },
+            { label: "Company's ST No", name: "stNo" },
+            { label: "Company VAT Reg. No", name: "vatNo" },
+            { label: "I Tax PAN (if needed)", name: "pan" },
+            { label: "Email *", name: "email" },
+            { label: "Password *", name: "password" }
+          ].map(({ label, name }) => (
+            <input
+              key={name}
+              type={name === "password" ? "password" : name === "email" ? "email" : "text"}
+              placeholder={label}
+              name={name}
+              value={form[name]}
+              onChange={handleChange}
+              style={{
+                padding: "0.75rem",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                fontSize: "1rem",
+                outlineColor: "#2a5298",
+              }}
+            />
+          ))}
 
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", marginTop: "1rem" }}>
-          <button
-            type="submit"
+          <select
+            name="holding"
+            value={form.holding}
+            onChange={handleChange}
+            required
             style={{
-              padding: "0.8rem 1.5rem",
-              borderRadius: "4px",
-              border: "none",
-              fontWeight: "bold",
-              backgroundColor: "#fff",
-              color: "#2a5298",
-              cursor: "pointer"
+              padding: "0.75rem",
+              borderRadius: "6px",
+              border: "1px solid #ccc",
+              fontSize: "1rem",
+              outlineColor: "#2a5298",
             }}
           >
-            Submit
-          </button>
-          <button
-            type="button"
-            onClick={handleClear}
+            <option value="">-- Select Holding Type * --</option>
+            <option value="Proprietary">Proprietary</option>
+            <option value="Pvt. Ltd">Pvt. Ltd</option>
+            <option value="Ltd">Ltd</option>
+          </select>
+
+          <div
             style={{
-              padding: "0.8rem 1.5rem",
-              borderRadius: "4px",
-              border: "none",
-              fontWeight: "bold",
-              backgroundColor: "#ccc",
-              color: "#333",
-              cursor: "pointer"
+              display: "flex",
+              gap: "1rem",
+              justifyContent: "center",
+              marginTop: "1rem",
             }}
           >
-            Clear
-          </button>
-        </div>
-      </form>
+            <button
+              type="submit"
+              style={{
+                padding: "0.75rem 2rem",
+                backgroundColor: "#2a5298",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                fontSize: "1rem",
+              }}
+            >
+              Submit
+            </button>
+            <button
+              type="button"
+              onClick={handleClear}
+              style={{
+                padding: "0.75rem 2rem",
+                backgroundColor: "#ccc",
+                color: "#333",
+                border: "none",
+                borderRadius: "6px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                fontSize: "1rem",
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

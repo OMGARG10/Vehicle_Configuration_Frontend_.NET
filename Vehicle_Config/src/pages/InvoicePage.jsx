@@ -12,26 +12,32 @@ function parseCustDetails(detailsStr) {
 function InvoicePage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { invoice, invoiceId } = location.state || {};
+  const { invoice, invoiceId, imagePath: stateImagePath, modelId: stateModelId } =
+    location.state || {};
   const id = invoiceId || invoice?.InvId;
 
   const [invoiceData, setInvoiceData] = useState(invoice || null);
   const [details, setDetails] = useState([]);
+  const [modelImageUrl, setModelImageUrl] = useState(stateImagePath || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        let headerData = invoiceData;
+
+        // 1️⃣ Fetch invoice header if not passed
         if (id && !invoiceData) {
           const headerRes = await fetch(
             `https://localhost:7000/api/invoiceheader/${id}`
           );
           if (!headerRes.ok) throw new Error("Failed to fetch invoice header");
-          const headerData = await headerRes.json();
+          headerData = await headerRes.json();
           setInvoiceData(headerData);
         }
 
+        // 2️⃣ Fetch invoice details
         if (id) {
           const detailRes = await fetch(
             `https://localhost:7000/api/invoicedetail/byinvoice/${id}`
@@ -39,6 +45,23 @@ function InvoicePage() {
           if (!detailRes.ok) throw new Error("Failed to fetch invoice details");
           const detailData = await detailRes.json();
           setDetails(detailData);
+        }
+
+        // 3️⃣ Fetch model image if not passed via state
+        if (!stateImagePath) {
+          const modelId =
+            headerData?.ModelId || stateModelId || (headerData?.model && headerData.model.ModelId);
+          if (modelId) {
+            const modelRes = await fetch(
+              `https://localhost:7000/api/models/${modelId}`
+            );
+            if (modelRes.ok) {
+              const modelInfo = await modelRes.json();
+              if (modelInfo?.ImagePath) {
+                setModelImageUrl(`https://localhost:7000${modelInfo.ImagePath}`);
+              }
+            }
+          }
         }
 
         setLoading(false);
@@ -50,7 +73,7 @@ function InvoicePage() {
     };
 
     fetchData();
-  }, [id, invoiceData]);
+  }, [id, invoiceData, stateImagePath, stateModelId]);
 
   const handleEmailSend = async () => {
     if (!invoiceData || details.length === 0) {
@@ -58,18 +81,25 @@ function InvoicePage() {
       return;
     }
 
-    const modelId = invoiceData.ModelId || (invoiceData.model && invoiceData.model.ModelId) || 0;
+    const modelId =
+      invoiceData.ModelId ||
+      (invoiceData.model && invoiceData.model.ModelId) ||
+      stateModelId ||
+      0;
 
     try {
-      const res = await fetch(`https://localhost:7000/api/invoicedetail/sendemail`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invoiceHeader: invoiceData,
-          invoiceDetails: details,
-          modelId: modelId,
-        }),
-      });
+      const res = await fetch(
+        `https://localhost:7000/api/invoicedetail/sendemail`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            invoiceHeader: invoiceData,
+            invoiceDetails: details,
+            modelId: modelId,
+          }),
+        }
+      );
 
       if (!res.ok) throw new Error("Email sending failed");
 
@@ -81,7 +111,6 @@ function InvoicePage() {
     }
   };
 
-
   if (!id) return <div>Error: Invoice ID not found.</div>;
   if (loading) return <div>Loading invoice...</div>;
   if (error) return <div style={{ color: "red" }}>Error: {error}</div>;
@@ -89,12 +118,32 @@ function InvoicePage() {
   const custDetailsParsed = parseCustDetails(invoiceData.CustDetails);
 
   return (
-    <div style={pageStyle}>
-      <h1>Invoice</h1>
-      <div id="invoice-content" style={invoiceStyle}>
-        <div>
+    <div style={pageContainer}>
+      <h1 style={pageTitle}>📄 Invoice</h1>
+
+      <div style={invoiceCard}>
+        {modelImageUrl && (
+          <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+            <img
+              src={modelImageUrl}
+              alt="Selected Model"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "300px",
+                borderRadius: "8px",
+                objectFit: "contain",
+              }}
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = "/images/default-car.jpg";
+              }}
+            />
+          </div>
+        )}
+
+        <div style={{ marginBottom: "1rem" }}>
           <strong>Customer Details:</strong>
-          <ul>
+          <ul style={{ paddingLeft: "1.2rem" }}>
             {custDetailsParsed.map(({ key, value }, idx) => (
               <li key={idx}>
                 <strong>{key}:</strong> {value}
@@ -104,14 +153,13 @@ function InvoicePage() {
         </div>
 
         <p>
-          <strong>Date:</strong>{" "}
-          {new Date(invoiceData.InvDate).toLocaleString()}
+          <strong>Date:</strong> {new Date(invoiceData.InvDate).toLocaleString()}
         </p>
         <p>
           <strong>Quantity:</strong> {invoiceData.Quantity}
         </p>
 
-        <ul>
+        <ul style={{ paddingLeft: "1.2rem" }}>
           {details.length === 0 ? (
             <li>No components found in invoice.</li>
           ) : (
@@ -124,27 +172,25 @@ function InvoicePage() {
           )}
         </ul>
 
-        <hr />
+        <hr style={{ margin: "1rem 0" }} />
         <p>Subtotal: ₹{invoiceData.FinalAmount?.toLocaleString()}</p>
         <p>GST: ₹{invoiceData.Tax?.toLocaleString()}</p>
         <h3>Total: ₹{invoiceData.TotalAmount?.toLocaleString()}</h3>
       </div>
 
-      <div style={buttonContainer}>
-        <button onClick={() => navigate("/configure")} style={buttonStyle}>
+      <div style={buttonGroup}>
+        <button
+          onClick={() =>
+            navigate("/configure", { state: { modelId: invoiceData.ModelId } })
+          }
+          style={cancelButtonStyle}
+        >
           Cancel
         </button>
-        <button
-          onClick={handleEmailSend}
-          style={{ ...buttonStyle, backgroundColor: "#28a745", color: "#fff" }}
-        >
-          Confirm
+        <button onClick={handleEmailSend} style={confirmButtonStyle}>
+          Send Email
         </button>
-
-        <button
-          onClick={() => window.print()}
-          style={{ ...buttonStyle, backgroundColor: "#007bff", color: "#fff" }}
-        >
+        <button onClick={() => window.print()} style={printButtonStyle}>
           Print
         </button>
       </div>
@@ -152,31 +198,68 @@ function InvoicePage() {
   );
 }
 
-const pageStyle = {
-  padding: "2rem",
-  fontFamily: "Arial, sans-serif",
-  backgroundColor: "#f4f4f4",
+// -- Styling (Unchanged) --
+
+const pageContainer = {
   minHeight: "100vh",
+  width: "100vw",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#f5f5f5",
+  fontFamily: "Arial, sans-serif",
+  paddingTop: "7rem",
+  paddingBottom: "2rem",
 };
 
-const invoiceStyle = {
+const pageTitle = {
+  fontSize: "2rem",
+  color: "#222",
+  marginBottom: "1.5rem",
+};
+
+const invoiceCard = {
   backgroundColor: "#fff",
-  padding: "1rem",
-  borderRadius: "8px",
-  boxShadow: "0 0 10px rgba(0,0,0,0.1)",
+  padding: "2rem",
+  borderRadius: "10px",
+  boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+  color: "#333",
+  maxWidth: "800px",
+  width: "95%",
 };
 
-const buttonContainer = {
-  marginTop: "1rem",
+const buttonGroup = {
   display: "flex",
   gap: "1rem",
+  marginTop: "1.5rem",
 };
 
-const buttonStyle = {
+const baseButton = {
   padding: "0.8rem 1.5rem",
-  borderRadius: "4px",
+  borderRadius: "6px",
   border: "none",
+  fontWeight: "bold",
+  color: "#fff",
+  fontSize: "1rem",
   cursor: "pointer",
+  transition: "background-color 0.3s",
+};
+
+const cancelButtonStyle = {
+  ...baseButton,
+  backgroundColor: "#ccc",
+  color: "#000",
+};
+
+const confirmButtonStyle = {
+  ...baseButton,
+  backgroundColor: "#28a745",
+};
+
+const printButtonStyle = {
+  ...baseButton,
+  backgroundColor: "#007bff",
 };
 
 export default InvoicePage;

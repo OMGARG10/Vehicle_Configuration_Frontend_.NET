@@ -11,11 +11,8 @@ function ConfigurePage() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const {
-    modelId,
-    quantity: stateQuantity,
-    minQuantity: stateMinQuantity,
-  } = location.state || {};
+  const { modelId, quantity: stateQuantity, minQuantity: stateMinQuantity } =
+    location.state || {};
 
   const [minQuantity] = useState(stateMinQuantity ?? 1);
   const [quantity, setQuantity] = useState(stateQuantity ?? minQuantity ?? 1);
@@ -31,11 +28,13 @@ function ConfigurePage() {
   useEffect(() => {
     if (!modelId) return;
 
+    // Fetch configurable components
     fetch(`https://localhost:7000/api/models/configurable/${modelId}`)
       .then((res) => res.json())
       .then(setDefaultComponents)
       .catch((err) => console.error("Error fetching default components:", err));
 
+    // Fetch alternate components
     fetch(`https://localhost:7000/api/models/alternate-components/${modelId}`)
       .then((res) => res.json())
       .then((data) => {
@@ -51,6 +50,7 @@ function ConfigurePage() {
       })
       .catch((err) => console.error("Error fetching alternates:", err));
 
+    // Fetch base price
     fetch(`https://localhost:7000/api/models/price/${modelId}`)
       .then((res) => res.json())
       .then((price) => {
@@ -90,10 +90,7 @@ function ConfigurePage() {
       alert("This alternate is already added.");
       return;
     }
-    const newSelected = {
-      ...selectedAlternates,
-      [compId]: altId,
-    };
+    const newSelected = { ...selectedAlternates, [compId]: altId };
     setSelectedAlternates(newSelected);
     recalcTotalPrice(newSelected);
 
@@ -113,11 +110,8 @@ function ConfigurePage() {
 
   const handleQuantityChange = (e) => {
     const val = parseInt(e.target.value);
-    if (isNaN(val) || val < minQuantity) {
-      setQuantity(minQuantity);
-    } else {
-      setQuantity(val);
-    }
+    if (isNaN(val) || val < minQuantity) setQuantity(minQuantity);
+    else setQuantity(val);
   };
 
   return (
@@ -168,8 +162,7 @@ function ConfigurePage() {
 
         {defaultComponents
           .filter(
-            (comp) =>
-              comp.CompType === selectedType && comp.IsConfigurable === "Y"
+            (comp) => comp.CompType === selectedType && comp.IsConfigurable === "Y"
           )
           .map((comp) => {
             const compId = comp.Component.CompId.toString();
@@ -177,10 +170,7 @@ function ConfigurePage() {
             const selectedAltId = selectedAlternates[compId];
             const alternatesForComp = alternateMap[compId] || [];
             const pendingAltId = pendingAlternateSelection[compId] || "";
-
-            const selectedAltObj = alternatesForComp.find(
-              (alt) => alt.AltId === selectedAltId
-            );
+            const selectedAltObj = alternatesForComp.find((alt) => alt.AltId === selectedAltId);
 
             return (
               <div key={comp.ConfigId} style={horizontalComponentBlockStyle}>
@@ -197,10 +187,7 @@ function ConfigurePage() {
                         <select
                           value={pendingAltId}
                           onChange={(e) =>
-                            handlePendingChange(
-                              compId,
-                              e.target.value ? parseInt(e.target.value) : ""
-                            )
+                            handlePendingChange(compId, e.target.value ? parseInt(e.target.value) : "")
                           }
                           style={{
                             ...selectStyle,
@@ -210,8 +197,7 @@ function ConfigurePage() {
                           <option value="">-- Select Alternate --</option>
                           {alternatesForComp.map((alt) => (
                             <option key={alt.AltId} value={alt.AltId}>
-                              {alt.AlternateComponentEntity?.CompName} | ₹
-                              {alt.DeltaPrice}
+                              {alt.AlternateComponentEntity?.CompName} | ₹{alt.DeltaPrice}
                             </option>
                           ))}
                         </select>
@@ -230,14 +216,9 @@ function ConfigurePage() {
                       {selectedAltObj && (
                         <div style={selectedAltDisplayStyle}>
                           <span>
-                            Selected:{" "}
-                            {selectedAltObj.AlternateComponentEntity?.CompName} | ₹
-                            {selectedAltObj.DeltaPrice}
+                            Selected: {selectedAltObj.AlternateComponentEntity?.CompName} | ₹{selectedAltObj.DeltaPrice}
                           </span>
-                          <button
-                            onClick={() => handleRemoveAlternate(compId)}
-                            style={removeButtonStyle}
-                          >
+                          <button onClick={() => handleRemoveAlternate(compId)} style={removeButtonStyle}>
                             Remove
                           </button>
                         </div>
@@ -254,14 +235,11 @@ function ConfigurePage() {
         <button
           onClick={async () => {
             try {
-              // Read user info from sessionStorage
               const userIdStr = sessionStorage.getItem("userId");
               const jwtToken = sessionStorage.getItem("jwtToken");
 
               if (!userIdStr || !jwtToken) {
-                alert(
-                  "User is not logged in or session expired. Please login again."
-                );
+                alert("User not logged in. Please login again.");
                 return;
               }
 
@@ -271,12 +249,10 @@ function ConfigurePage() {
                 return;
               }
 
-              const details = Object.entries(selectedAlternates).map(
-                ([compId, altId]) => ({
-                  CompId: parseInt(compId),
-                  IsAlternate: "Y",
-                })
-              );
+              const details = Object.entries(selectedAlternates).map(([compId, altId]) => ({
+                CompId: parseInt(compId),
+                IsAlternate: "Y",
+              }));
 
               const baseCompIds = defaultComponents
                 .filter((comp) => comp.IsConfigurable === "Y")
@@ -284,10 +260,7 @@ function ConfigurePage() {
 
               baseCompIds.forEach((compId) => {
                 if (!selectedAlternates[compId]) {
-                  details.push({
-                    CompId: compId,
-                    IsAlternate: "N",
-                  });
+                  details.push({ CompId: compId, IsAlternate: "N" });
                 }
               });
 
@@ -298,23 +271,18 @@ function ConfigurePage() {
                 Details: details,
               };
 
-              const response = await fetch(
-                "https://localhost:7000/api/invoiceheader/create",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${jwtToken}`,
-                  },
-                  body: JSON.stringify(payload),
-                }
-              );
+              const response = await fetch("https://localhost:7000/api/invoiceheader/create", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${jwtToken}`,
+                },
+                body: JSON.stringify(payload),
+              });
 
               if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(
-                  `Failed to create invoice: ${errorText || response.statusText}`
-                );
+                throw new Error(`Failed to create invoice: ${errorText || response.statusText}`);
               }
 
               const createdInvoice = await response.json();
@@ -328,6 +296,7 @@ function ConfigurePage() {
                   totalPrice,
                   basePrice,
                   quantity,
+                  // Pass imagePath if needed from backend in InvoicePage
                 },
               });
             } catch (err) {
