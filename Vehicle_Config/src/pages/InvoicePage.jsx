@@ -163,12 +163,25 @@ function InvoicePage() {
           {details.length === 0 ? (
             <li>No components found in invoice.</li>
           ) : (
-            details.map((item) => (
-              <li key={item.InvDtlId}>
-                {item.Component?.CompName ?? "Unknown Component"}
-                {item.IsAlternate === "Y" ? " (Alternate)" : ""}
-              </li>
-            ))
+            details.map((item) => {
+              const compName = item.Component?.CompName || "Unknown Component";
+              const isAlt = item.IsAlternate === "Y";
+              const delta = item.DeltaPrice;
+
+              return (
+                <li key={item.InvDtlId}>
+                  {compName}
+                  {isAlt && (
+                    <span>
+                      {" "}
+                      (Alternate
+                      {item.Component?.CompName ? `: ${item.Component.CompName}` : ""}
+                      {delta != null ? ` | ₹${delta}` : ""})
+                    </span>
+                  )}
+                </li>
+              );
+            })
           )}
         </ul>
 
@@ -198,7 +211,7 @@ function InvoicePage() {
   );
 }
 
-// -- Styling (Unchanged) --
+// -- Styling (unchanged) --
 
 const pageContainer = {
   minHeight: "100vh",

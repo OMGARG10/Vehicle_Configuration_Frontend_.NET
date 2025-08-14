@@ -1,22 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const typeMap = {
-  S: "Standard",
-  I: "Interior",
-  E: "Exterior",
-};
+const typeMap = { S: "Standard", I: "Interior", E: "Exterior" };
 
 function ConfigurePage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { modelId, quantity: stateQuantity } = location.state || {};
 
-  const { modelId, quantity: stateQuantity, minQuantity: stateMinQuantity } =
-    location.state || {};
-
-  const [minQuantity] = useState(stateMinQuantity ?? 1);
-  const [quantity, setQuantity] = useState(stateQuantity ?? minQuantity ?? 1);
-
+  const [quantity, setQuantity] = useState(stateQuantity ?? 1);
   const [defaultComponents, setDefaultComponents] = useState([]);
   const [alternateMap, setAlternateMap] = useState({});
   const [basePrice, setBasePrice] = useState(0);
@@ -32,7 +24,7 @@ function ConfigurePage() {
     fetch(`https://localhost:7000/api/models/configurable/${modelId}`)
       .then((res) => res.json())
       .then(setDefaultComponents)
-      .catch((err) => console.error("Error fetching default components:", err));
+      .catch(console.error);
 
     // Fetch alternate components
     fetch(`https://localhost:7000/api/models/alternate-components/${modelId}`)
@@ -48,7 +40,7 @@ function ConfigurePage() {
         }
         setAlternateMap(map);
       })
-      .catch((err) => console.error("Error fetching alternates:", err));
+      .catch(console.error);
 
     // Fetch base price
     fetch(`https://localhost:7000/api/models/price/${modelId}`)
@@ -59,59 +51,37 @@ function ConfigurePage() {
         setSelectedAlternates({});
         setPendingAlternateSelection({});
       })
-      .catch((err) => console.error("Error fetching base price:", err));
+      .catch(console.error);
   }, [modelId]);
 
-  const recalcTotalPrice = (newSelectedAlternates) => {
-    let newTotal = basePrice;
-    for (const [compId, altId] of Object.entries(newSelectedAlternates)) {
+  const recalcTotalPrice = (newSelected) => {
+    let total = basePrice;
+    for (const [compId, altId] of Object.entries(newSelected)) {
       if (!altId) continue;
       const altList = alternateMap[compId] || [];
       const altObj = altList.find((alt) => alt.AltId === altId);
-      if (altObj) newTotal += altObj.DeltaPrice;
+      if (altObj) total += altObj.DeltaPrice ?? 0;
     }
-    setTotalPrice(newTotal);
-  };
-
-  const handlePendingChange = (compId, altId) => {
-    setPendingAlternateSelection((prev) => ({
-      ...prev,
-      [compId]: altId,
-    }));
+    setTotalPrice(total);
   };
 
   const handleAddAlternate = (compId) => {
     const altId = pendingAlternateSelection[compId];
-    if (!altId) {
-      alert("Please select an alternate to add");
-      return;
-    }
-    if (selectedAlternates[compId] === altId) {
-      alert("This alternate is already added.");
-      return;
-    }
+    if (!altId) return alert("Select an alternate first");
+    if (selectedAlternates[compId] === altId)
+      return alert("Alternate already added");
+
     const newSelected = { ...selectedAlternates, [compId]: altId };
     setSelectedAlternates(newSelected);
     recalcTotalPrice(newSelected);
-
-    setPendingAlternateSelection((prev) => ({
-      ...prev,
-      [compId]: "",
-    }));
+    setPendingAlternateSelection((prev) => ({ ...prev, [compId]: "" }));
   };
 
   const handleRemoveAlternate = (compId) => {
-    if (!(compId in selectedAlternates)) return;
     const newSelected = { ...selectedAlternates };
     delete newSelected[compId];
     setSelectedAlternates(newSelected);
     recalcTotalPrice(newSelected);
-  };
-
-  const handleQuantityChange = (e) => {
-    const val = parseInt(e.target.value);
-    if (isNaN(val) || val < minQuantity) setQuantity(minQuantity);
-    else setQuantity(val);
   };
 
   return (
@@ -123,24 +93,8 @@ function ConfigurePage() {
           <h3 style={subheadingStyle}>
             Base Price: ₹{basePrice} | Total Price: ₹{totalPrice}
           </h3>
-
-          <label style={{ fontWeight: "bold", marginTop: "1rem" }}>
-            Quantity :
-            <span
-              style={{
-                marginLeft: "0.5rem",
-                padding: "0.3rem 0.6rem",
-                borderRadius: "4px",
-                backgroundColor: "#2a5298",
-                fontWeight: "bold",
-                display: "inline-block",
-                minWidth: "60px",
-                textAlign: "center",
-                color: "#fff",
-              }}
-            >
-              {quantity}
-            </span>
+          <label>
+            Quantity: <strong>{quantity}</strong>
           </label>
 
           <div style={typeButtonContainerStyle}>
@@ -166,20 +120,19 @@ function ConfigurePage() {
           )
           .map((comp) => {
             const compId = comp.Component.CompId.toString();
-            const compName = comp.Component.CompName || `Component #${compId}`;
-            const selectedAltId = selectedAlternates[compId];
-            const alternatesForComp = alternateMap[compId] || [];
+            const alternates = alternateMap[compId] || [];
             const pendingAltId = pendingAlternateSelection[compId] || "";
-            const selectedAltObj = alternatesForComp.find((alt) => alt.AltId === selectedAltId);
+            const selectedAltId = selectedAlternates[compId];
+            const selectedAltObj = alternates.find((alt) => alt.AltId === selectedAltId);
 
             return (
               <div key={comp.ConfigId} style={horizontalComponentBlockStyle}>
                 <div style={componentNameStyle}>
-                  <strong>{compName}</strong>
+                  <strong>{comp.Component.CompName}</strong>
                 </div>
 
                 <div style={alternateBlockStyle}>
-                  {alternatesForComp.length === 0 ? (
+                  {alternates.length === 0 ? (
                     <p>No alternates</p>
                   ) : (
                     <>
@@ -187,7 +140,10 @@ function ConfigurePage() {
                         <select
                           value={pendingAltId}
                           onChange={(e) =>
-                            handlePendingChange(compId, e.target.value ? parseInt(e.target.value) : "")
+                            setPendingAlternateSelection((prev) => ({
+                              ...prev,
+                              [compId]: e.target.value ? parseInt(e.target.value) : "",
+                            }))
                           }
                           style={{
                             ...selectStyle,
@@ -195,12 +151,13 @@ function ConfigurePage() {
                           }}
                         >
                           <option value="">-- Select Alternate --</option>
-                          {alternatesForComp.map((alt) => (
+                          {alternates.map((alt) => (
                             <option key={alt.AltId} value={alt.AltId}>
                               {alt.AlternateComponentEntity?.CompName} | ₹{alt.DeltaPrice}
                             </option>
                           ))}
                         </select>
+
                         <button
                           onClick={() => handleAddAlternate(compId)}
                           disabled={!pendingAltId}
@@ -216,9 +173,13 @@ function ConfigurePage() {
                       {selectedAltObj && (
                         <div style={selectedAltDisplayStyle}>
                           <span>
-                            Selected: {selectedAltObj.AlternateComponentEntity?.CompName} | ₹{selectedAltObj.DeltaPrice}
+                            Selected: {selectedAltObj.AlternateComponentEntity?.CompName} | ₹
+                            {selectedAltObj.DeltaPrice}
                           </span>
-                          <button onClick={() => handleRemoveAlternate(compId)} style={removeButtonStyle}>
+                          <button
+                            onClick={() => handleRemoveAlternate(compId)}
+                            style={removeButtonStyle}
+                          >
                             Remove
                           </button>
                         </div>
@@ -234,85 +195,48 @@ function ConfigurePage() {
       <div style={footerButtonContainerStyle}>
         <button
           onClick={async () => {
-            try {
-              const userIdStr = sessionStorage.getItem("userId");
-              const jwtToken = sessionStorage.getItem("jwtToken");
+            const userIdStr = sessionStorage.getItem("userId");
+            const jwtToken = sessionStorage.getItem("jwtToken");
+            if (!userIdStr || !jwtToken) return alert("Login first");
+            const userId = parseInt(userIdStr);
 
-              if (!userIdStr || !jwtToken) {
-                alert("User not logged in. Please login again.");
-                return;
-              }
+            const details = defaultComponents.map((comp) => ({
+              CompId: comp.Component.CompId,
+              IsAlternate: selectedAlternates[comp.Component.CompId.toString()] ? "Y" : "N",
+              SelectedAltCompId: selectedAlternates[comp.Component.CompId.toString()] || null,
+            }));
 
-              const userId = parseInt(userIdStr);
-              if (isNaN(userId)) {
-                alert("Invalid user info. Please login again.");
-                return;
-              }
+            const payload = { UserId: userId, ModelId: modelId, Quantity: quantity, Details: details };
 
-              const details = Object.entries(selectedAlternates).map(([compId, altId]) => ({
-                CompId: parseInt(compId),
-                IsAlternate: "Y",
-              }));
+            const res = await fetch("https://localhost:7000/api/invoiceheader/create", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${jwtToken}`,
+              },
+              body: JSON.stringify(payload),
+            });
 
-              const baseCompIds = defaultComponents
-                .filter((comp) => comp.IsConfigurable === "Y")
-                .map((comp) => comp.Component.CompId);
-
-              baseCompIds.forEach((compId) => {
-                if (!selectedAlternates[compId]) {
-                  details.push({ CompId: compId, IsAlternate: "N" });
-                }
-              });
-
-              const payload = {
-                UserId: userId,
-                ModelId: modelId,
-                Quantity: quantity,
-                Details: details,
-              };
-
-              const response = await fetch("https://localhost:7000/api/invoiceheader/create", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${jwtToken}`,
-                },
-                body: JSON.stringify(payload),
-              });
-
-              if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Failed to create invoice: ${errorText || response.statusText}`);
-              }
-
-              const createdInvoice = await response.json();
-
-              navigate("/invoice", {
-                state: {
-                  invoice: createdInvoice,
-                  modelId,
-                  selectedAlternates,
-                  defaultComponents,
-                  totalPrice,
-                  basePrice,
-                  quantity,
-                  // Pass imagePath if needed from backend in InvoicePage
-                },
-              });
-            } catch (err) {
-              console.error("Error creating invoice:", err);
-              alert(`Failed to create invoice. ${err.message}`);
+            if (!res.ok) {
+              const text = await res.text();
+              return alert("Invoice creation failed: " + text);
             }
+
+            const createdInvoice = await res.json();
+
+            navigate("/invoice", {
+              state: {
+                invoice: createdInvoice,
+                modelId,
+              },
+            });
           }}
           style={confirmButtonStyle}
         >
           Confirm Order
         </button>
 
-        <button
-          onClick={() => navigate("/configuration", { state: { modelId } })}
-          style={cancelButtonStyle}
-        >
+        <button onClick={() => navigate("/configuration", { state: { modelId } })} style={cancelButtonStyle}>
           Cancel
         </button>
       </div>
